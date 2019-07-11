@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"image/png"
@@ -11,6 +12,11 @@ import (
 
 	"github.com/codeskyblue/go-sh"
 	"github.com/kbinani/screenshot"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/host"
+	"github.com/shirou/gopsutil/load"
+	"github.com/shirou/gopsutil/mem"
+	"gopkg.in/ffmt.v1"
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
@@ -121,7 +127,65 @@ func main() {
 			log.Fatal(err)
 		}
 	})
+	b.Handle("/info", func(m *tb.Message) {
+		log.Println(m.Sender.Username+": ", m.Text)
+		if !isAdmin(m.Sender.Username) {
+			_, err := b.Send(m.Chat, "Only `"+fmt.Sprintf("%v", admins)+"` are authorized to run /info command! You can run /hello 	\xF0\x9F\x98\x82", &tb.SendOptions{ParseMode: "Markdown"})
+			if err != nil {
+				log.Println(err)
+			}
+			return
+		}
+		h, err := host.Info()
+		if err != nil {
+			log.Fatal(err)
+		}
+		// fmt.Printf("%+v\n", ffmt.Sd(h))
+		// b.Send(m.Chat, ffmt.Sd(h))
+		c, err := cpu.Info()
+		if err != nil {
+			log.Fatal(err)
+		}
+		// fmt.Printf("%+v\n", ffmt.Sd(c))
+		// b.Send(m.Chat, ffmt.Sd(c))
 
+		l, err := load.Avg()
+		if err != nil {
+			log.Fatal(err)
+		}
+		mm, err := mem.VirtualMemory()
+		if err != nil {
+			log.Fatal(err)
+		}
+		// fmt.Println(ffmt.Sd(h) + "\n" + ffmt.Sd(c) + "\n" + ffmt.Sd(l))
+		hstr, err := json.MarshalIndent(h, "", "  ")
+		if err != nil {
+			panic(err)
+		}
+		resp, err := b.Send(m.Chat, string(hstr[:len(hstr)/2]), &tb.SendOptions{ParseMode: "Markdown"})
+		resp, err = b.Send(m.Chat, string(hstr[len(hstr)/2:]), &tb.SendOptions{ParseMode: "Markdown"})
+		cstr, err := json.MarshalIndent(c[0], "", "  ")
+		if err != nil {
+			panic(err)
+		}
+		resp, err = b.Send(m.Chat, string(cstr[:len(cstr)/2]), &tb.SendOptions{ParseMode: "Markdown"})
+		resp, err = b.Send(m.Chat, string(cstr[len(cstr)/2:]), &tb.SendOptions{ParseMode: "Markdown"})
+		if err != nil {
+			ffmt.Puts(resp)
+			log.Fatal(err)
+		}
+		lstr, err := json.MarshalIndent(l, "", "  ")
+		if err != nil {
+			panic(err)
+		}
+		mmstr, err := json.MarshalIndent(mm, "", "  ")
+		resp, err = b.Send(m.Chat, string(lstr)+"\n"+string(mmstr), &tb.SendOptions{ParseMode: "Markdown"})
+		if err != nil {
+			log.Fatal(err)
+		}
+		// fmt.Printf("%+v\n", ffmt.Sd(l))
+
+	})
 	b.Handle("/getss", func(m *tb.Message) {
 		log.Println(m.Sender.Username + ": " + m.Text)
 		if !isAdmin(m.Sender.Username) {
